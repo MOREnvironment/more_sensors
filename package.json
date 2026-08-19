@@ -1,0 +1,8 @@
+{
+    "Library": "more_sensors",
+    "Id": "0c111fb5-df62-42ab-a8e4-f90c33b27e2e",
+    "Version": "0.0.1",
+    "Dependencies": [],
+    "RosDependencies": [],
+    "Install": []
+}

@@ -1,0 +1,12 @@
+
+{
+    "Library": "more_sensors",
+    "Plugins": [
+        // list your plugins here as json objects
+        // specify the type of each to either 'folder_scan' or 'file'
+    ],
+    "PluginTypes": [
+        // list your plugin type implementations (.py) here as json objects
+        // specify the type of each to either 'folder_scan' or 'file'
+    ]
+}
