@@ -1,0 +1,11 @@
+{
+    "ScriptPath": "/home/luka/fer/rpp/libraries/more_sensors/more_sensors/super_script.py",
+    "Language": "python",
+    "Configurations": {
+        "Default": {
+            "Components": {}
+        }
+    },
+    "ActiveConfiguration": "Default",
+    "Spec": {}
+}

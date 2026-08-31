@@ -2,11 +2,17 @@
 {
     "Library": "more_sensors",
     "Plugins": [
-        // list your plugins here as json objects
-        // specify the type of each to either 'folder_scan' or 'file'
+        {
+            "Name": "more_sensors::PoseSensor",
+            "Path": "more_sensors/plugins/pose_sensor.py",
+            "Type": "file"
+        }
     ],
     "PluginTypes": [
-        // list your plugin type implementations (.py) here as json objects
-        // specify the type of each to either 'folder_scan' or 'file'
+        {
+            "Name": "more_sensors::Sensor",
+            "Path": "more_sensors/plugin_types/sensor.capnp",
+            "Type": "file"
+        }
     ]
 }
