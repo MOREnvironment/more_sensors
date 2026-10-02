@@ -2,8 +2,9 @@
 
 using Anot = import "rpp_common/anot.capnp";
 
+# Shared category and graph contract for every sensor plugin.
 interface Sensor $Anot.plugin("Sensor") {
-    graph @0 () -> (graph :CasadyPayload);
+    graph @0 () -> (graph :SensorPayload);
 }
 
 struct IODescription {
@@ -23,10 +24,14 @@ struct StateDescription {
     description @5 :Text;
 }
 
-struct CasadyPayload {
+# Shared graph serialization used by every sensor plugin.
+struct SensorPayload {
     inputDescription @0 :List(IODescription);
     outputDescription @1 :List(IODescription);
     stateDescription @2 :List(StateDescription);
+    # Empty when the sensor graph has no state dynamics.
     dynamics @3 :Data;
     output @4 :Data;
+    # Message identifier interpreted by consumers.
+    messageName @5 :Text;
 }

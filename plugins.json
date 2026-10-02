@@ -3,14 +3,29 @@
     "Library": "more_sensors",
     "Plugins": [
         {
-            "Name": "more_sensors::PoseSensor",
+            "Name": "PoseSensor",
             "Path": "more_sensors/plugins/pose_sensor.py",
+            "Type": "file"
+        },
+        {
+            "Name": "IMU",
+            "Path": "more_sensors/plugins/imu.py",
+            "Type": "file"
+        },
+        {
+            "Name": "GNSS",
+            "Path": "more_sensors/plugins/gnss.py",
+            "Type": "file"
+        },
+        {
+            "Name": "DVL",
+            "Path": "more_sensors/plugins/dvl.py",
             "Type": "file"
         }
     ],
     "PluginTypes": [
         {
-            "Name": "more_sensors::Sensor",
+            "Name": "Sensor",
             "Path": "more_sensors/plugin_types/sensor.capnp",
             "Type": "file"
         }

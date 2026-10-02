@@ -1,12 +1,12 @@
 from rpp_plugin_types.more_sensors import Sensor
 from rpp_py.context import ComponentContext
 
-from more_sensors.models import pose_sensor_casadi
+from more_sensors.models import dvl_sensor_casadi
 
 from ._truth_sensor import SENSOR_PARAMETERS, truth_sensor_payload
 
 
-class PoseSensor(Sensor):
+class DVL(Sensor):
     PARAMETERS = list(SENSOR_PARAMETERS)
 
     def __init__(self) -> None:
@@ -14,13 +14,13 @@ class PoseSensor(Sensor):
 
     def initialize(self, context: ComponentContext) -> None:
         del context
-        self._model = pose_sensor_casadi()
+        self._model = dvl_sensor_casadi()
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
-            raise RuntimeError("PoseSensor must be initialized before graph()")
+            raise RuntimeError("DVL must be initialized before graph()")
         return truth_sensor_payload(
             self._model,
-            [("position", 3), ("orientation", 3)],
-            "PoseStamped",
+            [("linear_velocity", 3)],
+            "TwistStamped",
         )
