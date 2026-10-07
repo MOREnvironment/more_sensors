@@ -2,7 +2,7 @@ from rpp_plugin_types.more_sensors import Sensor
 from rpp_py.context import ComponentContext
 from rpp_py.parameter_description import ParameterDescription
 
-from more_sensors.models import imu_sensor_casadi
+from more_sensors.models import pressure_sensor_casadi
 
 from ._truth_sensor import (
     SENSOR_PARAMETERS,
@@ -14,13 +14,14 @@ from ._truth_sensor import (
 )
 
 
-class IMU(Sensor):
+class Pressure(Sensor):
+    # Pressure noise is given in pascals.
     PARAMETERS = [
         *SENSOR_PARAMETERS,
+        ParameterDescription("water_density", 1025.0),
         ParameterDescription("gravity", 9.80665),
-        *noise_parameters("orientation_", scale_factor=False),
-        *noise_parameters("gyro_"),
-        *noise_parameters("accel_"),
+        ParameterDescription("atmospheric_pressure", 101325.0),
+        *noise_parameters(size=1),
     ]
 
     def __init__(self) -> None:
@@ -29,31 +30,27 @@ class IMU(Sensor):
         self._rate_hz = 0.0
 
     def initialize(self, context: ComponentContext) -> None:
-        self._model = imu_sensor_casadi(
+        self._model = pressure_sensor_casadi(
             location=context.get_parameter("location", [0.0, 0.0, 0.0]),
+            water_density=context.get_parameter("water_density", 1025.0),
             gravity=context.get_parameter("gravity", 9.80665),
+            atmospheric_pressure=context.get_parameter(
+                "atmospheric_pressure", 101325.0
+            ),
         )
         self._noise = noise_description(
             context,
-            [
-                noise_terms(context, "orientation_"),
-                noise_terms(context, "gyro_"),
-                noise_terms(context, "accel_"),
-            ],
+            [noise_terms(context, size=1)],
         )
         self._rate_hz = sensor_rate(context)
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
-            raise RuntimeError("IMU must be initialized before graph()")
+            raise RuntimeError("Pressure must be initialized before graph()")
         return truth_sensor_payload(
             self._model,
-            [
-                ("orientation", 3),
-                ("angular_velocity", 3),
-                ("linear_acceleration", 3),
-            ],
-            "Imu",
+            [("pressure", 1)],
+            "FluidPressure",
             noise=self._noise,
             rate_hz=self._rate_hz,
         )

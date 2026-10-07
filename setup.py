@@ -9,5 +9,6 @@ setup(
     install_requires=[
         "casadi>=3.5.5",
         "more_common>=0.1.0",
+        "numpy",
     ],
 )

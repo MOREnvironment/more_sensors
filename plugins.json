@@ -21,6 +21,21 @@
             "Name": "DVL",
             "Path": "more_sensors/plugins/dvl.py",
             "Type": "file"
+        },
+        {
+            "Name": "Pressure",
+            "Path": "more_sensors/plugins/pressure.py",
+            "Type": "file"
+        },
+        {
+            "Name": "SBL",
+            "Path": "more_sensors/plugins/sbl.py",
+            "Type": "file"
+        },
+        {
+            "Name": "Magnetometer",
+            "Path": "more_sensors/plugins/magnetometer.py",
+            "Type": "file"
         }
     ],
     "PluginTypes": [

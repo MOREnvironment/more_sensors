@@ -34,4 +34,25 @@ struct SensorPayload {
     output @4 :Data;
     # Message identifier interpreted by consumers.
     messageName @5 :Text;
+    # Stochastic errors applied by the consumer to the graph output.
+    noise @6 :NoiseDescription;
+    # Measurement rate in Hz. Zero samples on every consumer step.
+    rateHz @7 :Float64;
+}
+
+# Per-element measurement errors in output units. An empty list disables that
+# term. The graph output stays the ideal measurement, so consumers apply:
+#   measurement = scaleFactor * output + bias_k + whiteNoiseStd * N(0, 1)
+#   bias_{k+1} = bias_k + biasRandomWalkStd * sqrt(dt) * N(0, 1)
+struct NoiseDescription {
+    enabled @0 :Bool;
+    seed @1 :UInt64;
+    scaleFactor @2 :List(Float64);
+    bias @3 :List(Float64);
+    # Standard deviation per sample.
+    whiteNoiseStd @4 :List(Float64);
+    # Standard deviation per square root of a second.
+    biasRandomWalkStd @5 :List(Float64);
+    # Probability in [0, 1] that a due measurement is not produced.
+    dropoutProbability @6 :Float64;
 }
