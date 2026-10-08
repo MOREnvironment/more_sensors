@@ -16,9 +16,7 @@ from ._truth_sensor import (
 
 class Pressure(Sensor):
     # Measures absolute pressure, with noise in pascals. Like a sensor
-    # driver it derives the depth from that reading, reported as the global
-    # z position, which is negative below the surface. topic names the depth
-    # message.
+    # driver it derives the depth from that reading.
     PARAMETERS = [
         *SENSOR_PARAMETERS,
         ParameterDescription("report_depth", True),
