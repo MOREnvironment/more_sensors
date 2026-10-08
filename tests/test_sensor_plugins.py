@@ -153,6 +153,35 @@ def test_gnss_noise_in_metres_is_converted_to_fix_units():
     )
 
 
+def test_gnss_fix_reports_its_covariance_in_metres():
+    sampler = SensorSampler(
+        _initialized(
+            GNSS,
+            noise_enabled=True,
+            fix_location=[45.8, 15.97, 100.0],
+            position_white_noise_std_per_sample=[1.0, 2.0, 5.0],
+        ).graph()
+    )
+    (message,) = sampler.messages
+
+    assert message.name == "NavSatFix"
+    np.testing.assert_allclose(
+        message.variances(sampler.noise.white_noise_std), [1.0, 4.0, 25.0]
+    )
+
+
+def test_gnss_without_noise_reports_no_covariance():
+    sampler = SensorSampler(
+        _initialized(
+            GNSS, position_white_noise_std_per_sample=[1.0, 2.0, 5.0]
+        ).graph()
+    )
+
+    np.testing.assert_allclose(
+        sampler.messages[0].variances(sampler.noise.white_noise_std), 0.0
+    )
+
+
 def test_sensor_location_is_used_as_a_lever_arm():
     vessel_state = np.zeros(12)
     vessel_state[11] = 0.5

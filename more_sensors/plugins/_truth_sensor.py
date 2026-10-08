@@ -154,9 +154,14 @@ def message_description(
     size: int = 1,
     scale: Sequence[float] = (),
     offset: Sequence[float] = (),
+    variance: Sequence[float] = (),
 ) -> MessageDescription:
     """Describe one message derived from part of the sensor output."""
-    for term_name, term in (("scale", scale), ("offset", offset)):
+    for term_name, term in (
+        ("scale", scale),
+        ("offset", offset),
+        ("variance", variance),
+    ):
         if len(term) not in (0, size):
             raise ValueError(f"message {term_name} must contain {size} values")
     description = MessageDescription()
@@ -166,6 +171,7 @@ def message_description(
     description.size = size
     description.scale.extend(float(value) for value in scale)
     description.offset.extend(float(value) for value in offset)
+    description.variance.extend(float(value) for value in variance)
     return description
 
 
@@ -176,11 +182,7 @@ def truth_sensor_payload(
     settings: SensorSettings | None = None,
     messages: Sequence[MessageDescription] = (),
 ) -> Sensor.SensorPayload:
-    """Build a stateless truth-sensor graph around a vessel-state model.
-
-    A model taking 18 values also consumes the 6-value body acceleration
-    after the 12-value vessel state.
-    """
+    """Build a stateless truth-sensor graph around a vessel-state model."""
     if not message_name:
         raise ValueError("message_name cannot be empty")
     input_size = model.size1_in(0)

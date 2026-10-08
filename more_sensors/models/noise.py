@@ -132,13 +132,16 @@ class SensorMessage:
     size: int
     scale: np.ndarray
     offset: np.ndarray
+    variance: np.ndarray | None = None
 
     def values(self, sample: np.ndarray) -> np.ndarray:
         """Convert a sampled sensor output to the values of this message."""
         return self.scale * self._elements(sample) + self.offset
 
     def variances(self, white_noise_std: np.ndarray) -> np.ndarray:
-        """Convert the output noise to the variances of this message."""
+        """Return the declared variances, or derive them from the noise."""
+        if self.variance is not None:
+            return self.variance.copy()
         return (self.scale * self._elements(white_noise_std)) ** 2
 
     def _elements(self, output: np.ndarray) -> np.ndarray:
@@ -192,10 +195,13 @@ class SensorSampler:
                 )
             scale = np.asarray(description.scale, dtype=float)
             offset = np.asarray(description.offset, dtype=float)
-            if scale.size not in (0, size) or offset.size not in (0, size):
+            variance = np.asarray(
+                getattr(description, "variance", []), dtype=float
+            )
+            if any(term.size not in (0, size) for term in (scale, offset, variance)):
                 raise ValueError(
-                    f"message {description.name!r} scale and offset must "
-                    f"contain {size} values"
+                    f"message {description.name!r} scale, offset, and "
+                    f"variance must contain {size} values"
                 )
             messages.append(
                 SensorMessage(
@@ -205,6 +211,7 @@ class SensorSampler:
                     size=size,
                     scale=scale if scale.size else np.ones(size),
                     offset=offset if offset.size else np.zeros(size),
+                    variance=variance if variance.size else None,
                 )
             )
         return messages

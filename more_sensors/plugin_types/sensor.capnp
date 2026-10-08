@@ -59,6 +59,9 @@ struct MessageDescription {
     # Empty lists leave the values unscaled and without an offset.
     scale @4 :List(Float64);
     offset @5 :List(Float64);
+    # Variances reported with the message, for messages whose covariance is
+    # not in the units of their values. Empty derives them from the noise.
+    variance @6 :List(Float64);
 }
 
 # Where the sensor sits on the vessel. The graph output already refers to
