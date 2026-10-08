@@ -6,10 +6,9 @@ from more_sensors.models import imu_sensor_casadi
 
 from ._truth_sensor import (
     SENSOR_PARAMETERS,
-    noise_description,
     noise_parameters,
     noise_terms,
-    sensor_rate,
+    sensor_settings,
     truth_sensor_payload,
 )
 
@@ -25,15 +24,14 @@ class IMU(Sensor):
 
     def __init__(self) -> None:
         self._model = None
-        self._noise = None
-        self._rate_hz = 0.0
+        self._settings = None
 
     def initialize(self, context: ComponentContext) -> None:
         self._model = imu_sensor_casadi(
             location=context.get_parameter("location", [0.0, 0.0, 0.0]),
             gravity=context.get_parameter("gravity", 9.80665),
         )
-        self._noise = noise_description(
+        self._settings = sensor_settings(
             context,
             [
                 noise_terms(context, "orientation_"),
@@ -41,7 +39,6 @@ class IMU(Sensor):
                 noise_terms(context, "accel_"),
             ],
         )
-        self._rate_hz = sensor_rate(context)
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
@@ -54,6 +51,5 @@ class IMU(Sensor):
                 ("linear_acceleration", 3),
             ],
             "Imu",
-            noise=self._noise,
-            rate_hz=self._rate_hz,
+            settings=self._settings,
         )

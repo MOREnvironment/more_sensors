@@ -38,6 +38,38 @@ struct SensorPayload {
     noise @6 :NoiseDescription;
     # Measurement rate in Hz. Zero samples on every consumer step.
     rateHz @7 :Float64;
+    mounting @8 :Mounting;
+    # Topic the consumer publishes on. Empty uses the consumer default.
+    topic @9 :Text;
+    # Messages built from the noisy output. Empty means one message named
+    # messageName on topic that covers the whole output.
+    messages @10 :List(MessageDescription);
+}
+
+# One message derived from consecutive elements of the noisy sensor output:
+#   values = scale * output[outputIndex : outputIndex + size] + offset
+# Several messages may read the same elements, so one measurement can be
+# reported in more than one unit.
+struct MessageDescription {
+    name @0 :Text;
+    # Empty uses the consumer default for this message.
+    topic @1 :Text;
+    outputIndex @2 :UInt32;
+    size @3 :UInt32;
+    # Empty lists leave the values unscaled and without an offset.
+    scale @4 :List(Float64);
+    offset @5 :List(Float64);
+}
+
+# Where the sensor sits on the vessel. The graph output already refers to
+# this point; consumers use it to label the measurement frame.
+struct Mounting {
+    # Frame of the measurement. Empty uses the consumer's vessel frame.
+    frameId @0 :Text;
+    # Position of that frame in the vessel body frame, in metres.
+    location @1 :List(Float64);
+    # Whether the consumer broadcasts the vessel-to-sensor transform.
+    publishTf @2 :Bool;
 }
 
 # Per-element measurement errors in output units. An empty list disables that

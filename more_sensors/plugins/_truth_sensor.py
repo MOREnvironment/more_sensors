@@ -8,17 +8,31 @@ from rpp_plugin_types.more_sensors import Sensor
 from rpp_py.context import ComponentContext
 from rpp_py.parameter_description import ParameterDescription
 from rpp_schema.more_sensors.IODescription import IODescription
+from rpp_schema.more_sensors.MessageDescription import MessageDescription
+from rpp_schema.more_sensors.Mounting import Mounting
 from rpp_schema.more_sensors.NoiseDescription import NoiseDescription
 
 
 SENSOR_PARAMETERS = (
     ParameterDescription("location", [0.0, 0.0, 0.0]),
+    ParameterDescription("frame_id", ""),
     ParameterDescription("publish_tf", False),
+    ParameterDescription("topic", ""),
     ParameterDescription("rate_hz", 0.0),
     ParameterDescription("noise_enabled", False),
     ParameterDescription("random_seed", 0),
     ParameterDescription("dropout_probability", 0.0),
 )
+
+
+@dataclass(frozen=True)
+class SensorSettings:
+    """Payload settings every sensor reads from its parameters."""
+
+    noise: NoiseDescription
+    rate_hz: float
+    mounting: Mounting
+    topic: str
 
 
 @dataclass(frozen=True)
@@ -106,20 +120,61 @@ def noise_description(
     return description
 
 
-def sensor_rate(context: ComponentContext) -> float:
-    """Read the measurement rate, where zero follows the consumer step."""
+def sensor_settings(
+    context: ComponentContext,
+    terms: Sequence[NoiseTerms],
+) -> SensorSettings:
+    """Read the noise, rate, and mounting shared by every sensor."""
     rate_hz = float(context.get_parameter("rate_hz", 0.0))
     if rate_hz < 0.0:
         raise ValueError("rate_hz cannot be negative")
-    return rate_hz
+
+    location = context.get_parameter("location", [0.0, 0.0, 0.0])
+    if len(location) != 3:
+        raise ValueError("location must contain 3 values")
+    mounting = Mounting()
+    mounting.frameId = str(context.get_parameter("frame_id", "")).strip()
+    mounting.location.extend(float(value) for value in location)
+    mounting.publishTf = bool(context.get_parameter("publish_tf", False))
+    if mounting.publishTf and not mounting.frameId:
+        raise ValueError("publish_tf requires a frame_id")
+
+    return SensorSettings(
+        noise=noise_description(context, terms),
+        rate_hz=rate_hz,
+        mounting=mounting,
+        topic=str(context.get_parameter("topic", "")).strip(),
+    )
+
+
+def message_description(
+    name: str,
+    topic: str = "",
+    output_index: int = 0,
+    size: int = 1,
+    scale: Sequence[float] = (),
+    offset: Sequence[float] = (),
+) -> MessageDescription:
+    """Describe one message derived from part of the sensor output."""
+    for term_name, term in (("scale", scale), ("offset", offset)):
+        if len(term) not in (0, size):
+            raise ValueError(f"message {term_name} must contain {size} values")
+    description = MessageDescription()
+    description.name = name
+    description.topic = topic
+    description.outputIndex = output_index
+    description.size = size
+    description.scale.extend(float(value) for value in scale)
+    description.offset.extend(float(value) for value in offset)
+    return description
 
 
 def truth_sensor_payload(
     model: ca.Function,
     output_descriptions: Sequence[tuple[str, int]],
     message_name: str,
-    noise: NoiseDescription | None = None,
-    rate_hz: float = 0.0,
+    settings: SensorSettings | None = None,
+    messages: Sequence[MessageDescription] = (),
 ) -> Sensor.SensorPayload:
     """Build a stateless truth-sensor graph around a vessel-state model.
 
@@ -134,9 +189,12 @@ def truth_sensor_payload(
 
     payload = Sensor.SensorPayload()
     payload.messageName = message_name
-    payload.rateHz = rate_hz
-    if noise is not None:
-        payload.noise = noise
+    if settings is not None:
+        payload.noise = settings.noise
+        payload.rateHz = settings.rate_hz
+        payload.mounting = settings.mounting
+        payload.topic = settings.topic
+    payload.messages.extend(messages)
     payload.inputDescription.append(IODescription(12, name="vessel_state"))
     if input_size == 18:
         payload.inputDescription.append(

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import casadi as ca
@@ -121,6 +122,31 @@ class SensorNoiseModel:
         return term.copy()
 
 
+@dataclass(frozen=True)
+class SensorMessage:
+    """One message a sensor derives from part of its noisy output."""
+
+    name: str
+    topic: str
+    output_index: int
+    size: int
+    scale: np.ndarray
+    offset: np.ndarray
+
+    def values(self, sample: np.ndarray) -> np.ndarray:
+        """Convert a sampled sensor output to the values of this message."""
+        return self.scale * self._elements(sample) + self.offset
+
+    def variances(self, white_noise_std: np.ndarray) -> np.ndarray:
+        """Convert the output noise to the variances of this message."""
+        return (self.scale * self._elements(white_noise_std)) ** 2
+
+    def _elements(self, output: np.ndarray) -> np.ndarray:
+        return np.asarray(output, dtype=float).reshape(-1)[
+            self.output_index:self.output_index + self.size
+        ]
+
+
 class SensorSampler:
     """Evaluate a sensor graph at its rate and apply its noise description."""
 
@@ -137,8 +163,51 @@ class SensorSampler:
             self.graph.num_outputs,
             payload.noise,
         )
+        self.messages = self._messages(payload)
         self._last_sample_time: float | None = None
         self._next_sample_time: float | None = None
+
+    def _messages(self, payload: Any) -> list[SensorMessage]:
+        """Read the payload messages, defaulting to one over the output."""
+        descriptions = list(getattr(payload, "messages", []))
+        if not descriptions:
+            return [
+                SensorMessage(
+                    name=self.message_name,
+                    topic=str(getattr(payload, "topic", "")).strip(),
+                    output_index=0,
+                    size=self.graph.num_outputs,
+                    scale=np.ones(self.graph.num_outputs),
+                    offset=np.zeros(self.graph.num_outputs),
+                )
+            ]
+        messages = []
+        for description in descriptions:
+            size = int(description.size)
+            index = int(description.outputIndex)
+            if size <= 0 or index + size > self.graph.num_outputs:
+                raise ValueError(
+                    f"message {description.name!r} reads outside the "
+                    "sensor output"
+                )
+            scale = np.asarray(description.scale, dtype=float)
+            offset = np.asarray(description.offset, dtype=float)
+            if scale.size not in (0, size) or offset.size not in (0, size):
+                raise ValueError(
+                    f"message {description.name!r} scale and offset must "
+                    f"contain {size} values"
+                )
+            messages.append(
+                SensorMessage(
+                    name=str(description.name),
+                    topic=str(description.topic).strip(),
+                    output_index=index,
+                    size=size,
+                    scale=scale if scale.size else np.ones(size),
+                    offset=offset if offset.size else np.zeros(size),
+                )
+            )
+        return messages
 
     @property
     def needs_acceleration(self) -> bool:

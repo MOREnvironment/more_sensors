@@ -6,10 +6,9 @@ from more_sensors.models import sbl_sensor_casadi
 
 from ._truth_sensor import (
     SENSOR_PARAMETERS,
-    noise_description,
     noise_parameters,
     noise_terms,
-    sensor_rate,
+    sensor_settings,
     truth_sensor_payload,
 )
 
@@ -25,8 +24,7 @@ class SBL(Sensor):
 
     def __init__(self) -> None:
         self._model = None
-        self._noise = None
-        self._rate_hz = 0.0
+        self._settings = None
 
     def initialize(self, context: ComponentContext) -> None:
         self._model = sbl_sensor_casadi(
@@ -38,8 +36,7 @@ class SBL(Sensor):
                 "array_orientation", [0.0, 0.0, 0.0]
             ),
         )
-        self._noise = noise_description(context, [noise_terms(context)])
-        self._rate_hz = sensor_rate(context)
+        self._settings = sensor_settings(context, [noise_terms(context)])
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
@@ -48,6 +45,5 @@ class SBL(Sensor):
             self._model,
             [("position", 3)],
             "PointStamped",
-            noise=self._noise,
-            rate_hz=self._rate_hz,
+            settings=self._settings,
         )

@@ -6,10 +6,9 @@ from more_sensors.models import magnetometer_sensor_casadi
 
 from ._truth_sensor import (
     SENSOR_PARAMETERS,
-    noise_description,
     noise_parameters,
     noise_terms,
-    sensor_rate,
+    sensor_settings,
     truth_sensor_payload,
 )
 
@@ -24,15 +23,13 @@ class Magnetometer(Sensor):
 
     def __init__(self) -> None:
         self._model = None
-        self._noise = None
-        self._rate_hz = 0.0
+        self._settings = None
 
     def initialize(self, context: ComponentContext) -> None:
         self._model = magnetometer_sensor_casadi(
             context.get_parameter("magnetic_field", [0.0, 20.0e-6, -45.0e-6])
         )
-        self._noise = noise_description(context, [noise_terms(context)])
-        self._rate_hz = sensor_rate(context)
+        self._settings = sensor_settings(context, [noise_terms(context)])
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
@@ -43,6 +40,5 @@ class Magnetometer(Sensor):
             self._model,
             [("magnetic_field", 3)],
             "MagneticField",
-            noise=self._noise,
-            rate_hz=self._rate_hz,
+            settings=self._settings,
         )

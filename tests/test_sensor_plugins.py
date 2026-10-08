@@ -28,7 +28,7 @@ SENSORS = {
     IMU: ("Imu", 18, 9),
     GNSS: ("NavSatFix", 12, 3),
     DVL: ("TwistStamped", 12, 3),
-    Pressure: ("FluidPressure", 12, 1),
+    Pressure: ("PoseWithCovarianceStamped", 12, 1),
     SBL: ("PointStamped", 12, 3),
     Magnetometer: ("MagneticField", 12, 3),
 }
@@ -183,6 +183,156 @@ def test_noisy_sensor_is_reproducible_for_a_seed():
 
     np.testing.assert_allclose(first, second)
     assert np.std(first) > 0.0
+
+
+@pytest.mark.parametrize(
+    "plugin_type, message_name",
+    [
+        (DVL, "TwistWithCovarianceStamped"),
+        (PoseSensor, "PoseWithCovarianceStamped"),
+    ],
+)
+def test_with_covariance_selects_the_estimator_message(
+    plugin_type, message_name
+):
+    payload = _initialized(plugin_type, with_covariance=True).graph()
+
+    assert payload.messageName == message_name
+
+
+def test_mounting_reaches_the_payload():
+    payload = _initialized(
+        DVL,
+        location=[1.0, 0.0, -0.3],
+        frame_id="dvl_link",
+        publish_tf=True,
+    ).graph()
+
+    assert payload.mounting.frameId == "dvl_link"
+    assert payload.topic == ""
+    assert payload.mounting.location == [1.0, 0.0, -0.3]
+    assert payload.mounting.publishTf
+
+
+def test_topic_reaches_the_payload():
+    assert _initialized(DVL, topic="dvl/data").graph().topic == "dvl/data"
+
+
+def test_sensor_without_a_frame_uses_the_vessel_frame():
+    payload = _initialized(DVL).graph()
+
+    assert payload.mounting.frameId == ""
+    assert not payload.mounting.publishTf
+
+
+def test_publishing_a_transform_requires_a_frame():
+    with pytest.raises(ValueError, match="publish_tf requires a frame_id"):
+        _initialized(DVL, publish_tf=True)
+
+
+def _pressure_messages(vessel_state, **parameters):
+    sampler = SensorSampler(_initialized(Pressure, **parameters).graph())
+    sample = sampler.sample(vessel_state, 0.0)
+    return sampler, {
+        message.name: message.values(sample) for message in sampler.messages
+    }
+
+
+def test_pressure_reports_the_depth_by_default():
+    vessel_state = np.zeros(12)
+    vessel_state[2] = -4.0
+
+    sampler, values = _pressure_messages(vessel_state)
+
+    assert [message.topic for message in sampler.messages] == ["depth"]
+    np.testing.assert_allclose(values["PoseWithCovarianceStamped"], [-4.0])
+
+
+def test_pressure_can_report_depth_and_pressure_together():
+    vessel_state = np.zeros(12)
+    vessel_state[2] = -4.0
+
+    sampler, values = _pressure_messages(
+        vessel_state,
+        report_pressure=True,
+        water_density=1000.0,
+        gravity=10.0,
+        atmospheric_pressure=100000.0,
+    )
+
+    assert [message.topic for message in sampler.messages] == [
+        "depth", "pressure",
+    ]
+    np.testing.assert_allclose(values["FluidPressure"], [140000.0])
+    np.testing.assert_allclose(values["PoseWithCovarianceStamped"], [-4.0])
+
+
+def test_reported_depth_is_derived_from_the_noisy_pressure():
+    vessel_state = np.zeros(12)
+    vessel_state[2] = -4.0
+
+    sampler, values = _pressure_messages(
+        vessel_state,
+        report_pressure=True,
+        water_density=1000.0,
+        gravity=10.0,
+        atmospheric_pressure=100000.0,
+        noise_enabled=True,
+        random_seed=5,
+        scale_factor=[1.01],
+        bias=[300.0],
+        white_noise_std_per_sample=[50.0],
+    )
+    depth_message, pressure_message = sampler.messages
+
+    assert values["FluidPressure"][0] != pytest.approx(140000.0, abs=1.0)
+    np.testing.assert_allclose(
+        values["PoseWithCovarianceStamped"],
+        -(values["FluidPressure"] - 100000.0) / 10000.0,
+    )
+    np.testing.assert_allclose(
+        pressure_message.variances(sampler.noise.white_noise_std), [2500.0]
+    )
+    np.testing.assert_allclose(
+        depth_message.variances(sampler.noise.white_noise_std), [0.005**2]
+    )
+
+
+def test_reported_depth_is_zero_above_the_surface():
+    vessel_state = np.zeros(12)
+    vessel_state[2] = 3.0
+
+    _, values = _pressure_messages(vessel_state)
+
+    np.testing.assert_allclose(
+        values["PoseWithCovarianceStamped"], [0.0], atol=1e-12
+    )
+
+
+def test_pressure_topics_can_be_named():
+    sampler, _ = _pressure_messages(
+        np.zeros(12),
+        report_pressure=True,
+        topic="bar30/depth",
+        pressure_topic="bar30/pressure",
+    )
+
+    assert [message.topic for message in sampler.messages] == [
+        "bar30/depth", "bar30/pressure",
+    ]
+
+
+def test_pressure_must_report_something():
+    with pytest.raises(ValueError, match="must report"):
+        _initialized(Pressure, report_depth=False)
+
+
+def test_single_message_sensor_covers_its_whole_output():
+    sampler = SensorSampler(_initialized(DVL, topic="dvl/data").graph())
+    (message,) = sampler.messages
+
+    assert (message.name, message.topic) == ("TwistStamped", "dvl/data")
+    np.testing.assert_allclose(message.values([1.0, 2.0, 3.0]), [1, 2, 3])
 
 
 def test_noise_parameter_with_a_wrong_size_is_rejected():

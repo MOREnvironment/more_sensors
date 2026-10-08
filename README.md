@@ -12,17 +12,24 @@ defined in more_sensors/plugin_types/sensor.capnp.
 | `Magnetometer` | body-frame field (T) | `MagneticField` | none |
 | `GNSS` | latitude, longitude, altitude | `NavSatFix` | `position_` (east, north, up in m) |
 | `DVL` | body-frame velocity | `TwistStamped` | none |
-| `Pressure` | absolute pressure (Pa) | `FluidPressure` | none |
+| `Pressure` | depth as z (m) and absolute pressure (Pa) | `PoseWithCovarianceStamped`, `FluidPressure` | none (Pa) |
 | `SBL` | position in the array frame | `PointStamped` | none |
 
-The vessel state stays 12 values. The IMU alone takes a second input, the
-6-value body acceleration (linear, angular), so its graph has 18 inputs.
+`Pressure` measures pressure, with noise in pascals, and like a sensor
+driver derives the depth from that reading.
+
+`DVL` and `PoseSensor` have `with_covariance`, which switches them to
+`TwistWithCovarianceStamped` and `PoseWithCovarianceStamped` for state
+estimators.
 
 ## Parameters
 
 Every sensor has:
 
 - `location`: mounting position in the body frame, used as the lever arm
+- `frame_id`, `publish_tf`: frame of the measurement, and whether the
+  consumer broadcasts its transform from the vessel frame
+- `topic`: topic to publish on, where empty uses the consumer default
 - `rate_hz`: measurement rate, where zero samples on every step
 - `noise_enabled`, `random_seed`, `dropout_probability`
 

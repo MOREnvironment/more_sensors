@@ -34,6 +34,8 @@ def _payload(rate_hz: float = 0.0, **noise) -> SimpleNamespace:
             )
         ),
         messageName="TwistStamped",
+        topic="",
+        messages=[],
         rateHz=rate_hz,
         noise=SimpleNamespace(**description),
     )

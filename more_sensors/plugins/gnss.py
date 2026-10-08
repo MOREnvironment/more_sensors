@@ -7,10 +7,9 @@ from more_sensors.models import enu_to_geodetic_scale, gnss_sensor_casadi
 from ._truth_sensor import (
     SENSOR_PARAMETERS,
     NoiseTerms,
-    noise_description,
     noise_parameters,
     noise_terms,
-    sensor_rate,
+    sensor_settings,
     truth_sensor_payload,
 )
 
@@ -25,8 +24,7 @@ class GNSS(Sensor):
 
     def __init__(self) -> None:
         self._model = None
-        self._noise = None
-        self._rate_hz = 0.0
+        self._settings = None
 
     def initialize(self, context: ComponentContext) -> None:
         fix_location = context.get_parameter("fix_location", [0.0, 0.0, 0.0])
@@ -34,7 +32,7 @@ class GNSS(Sensor):
             fix_location,
             context.get_parameter("location", [0.0, 0.0, 0.0]),
         )
-        self._noise = noise_description(
+        self._settings = sensor_settings(
             context,
             [
                 self._geodetic_terms(
@@ -43,7 +41,6 @@ class GNSS(Sensor):
                 )
             ],
         )
-        self._rate_hz = sensor_rate(context)
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
@@ -52,8 +49,7 @@ class GNSS(Sensor):
             self._model,
             [("latitude_longitude_altitude", 3)],
             "NavSatFix",
-            noise=self._noise,
-            rate_hz=self._rate_hz,
+            settings=self._settings,
         )
 
     @staticmethod
