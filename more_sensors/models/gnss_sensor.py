@@ -1,7 +1,9 @@
 from collections.abc import Sequence
-from math import isfinite, pi
+from math import cos, isfinite, pi, sin, sqrt
 
 import casadi as ca
+
+from .frames import sensor_position
 
 
 _WGS84_SEMI_MAJOR_AXIS_METERS = 6_378_137.0
@@ -29,8 +31,9 @@ def _validate_fix_location(
 
 def gnss_sensor_casadi(
     fix_location: Sequence[float] = (0.0, 0.0, 0.0),
+    location: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> ca.Function:
-    """Convert a local ENU position to WGS-84 geodetic coordinates."""
+    """Convert a local ENU antenna position to WGS-84 coordinates."""
     latitude_deg, longitude_deg, altitude = _validate_fix_location(
         fix_location
     )
@@ -57,7 +60,8 @@ def gnss_sensor_casadi(
     ) * sin_latitude
 
     vessel_state = ca.SX.sym("vessel_state", 12)
-    east, north, up = vessel_state[0], vessel_state[1], vessel_state[2]
+    antenna = sensor_position(vessel_state, location)
+    east, north, up = antenna[0], antenna[1], antenna[2]
     ecef_x = (
         origin_x
         - sin_longitude * east
@@ -114,4 +118,27 @@ def gnss_sensor_casadi(
         ],
         ["vessel_state"],
         ["fix"],
+    )
+
+
+def enu_to_geodetic_scale(
+    fix_location: Sequence[float] = (0.0, 0.0, 0.0),
+) -> tuple[float, float, float]:
+    """Return fix units per metre of local error at the origin."""
+    latitude_deg, _, altitude = _validate_fix_location(fix_location)
+    latitude = latitude_deg * pi / 180.0
+    denominator = 1.0 - _WGS84_ECCENTRICITY_SQUARED * sin(latitude) ** 2
+    prime_vertical_radius = _WGS84_SEMI_MAJOR_AXIS_METERS / sqrt(denominator)
+    meridional_radius = (
+        _WGS84_SEMI_MAJOR_AXIS_METERS
+        * (1.0 - _WGS84_ECCENTRICITY_SQUARED)
+        / denominator**1.5
+    )
+    parallel_radius = (prime_vertical_radius + altitude) * cos(latitude)
+    if parallel_radius <= 0.0:
+        raise ValueError("fix_location cannot be at a pole")
+    return (
+        180.0 / pi / (meridional_radius + altitude),
+        180.0 / pi / parallel_radius,
+        1.0,
     )

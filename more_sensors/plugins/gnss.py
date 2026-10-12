@@ -2,24 +2,55 @@ from rpp_plugin_types.more_sensors import Sensor
 from rpp_py.context import ComponentContext
 from rpp_py.parameter_description import ParameterDescription
 
-from more_sensors.models import gnss_sensor_casadi
+from more_sensors.models import enu_to_geodetic_scale, gnss_sensor_casadi
 
-from ._truth_sensor import SENSOR_PARAMETERS, truth_sensor_payload
+from ._truth_sensor import (
+    SENSOR_PARAMETERS,
+    NoiseTerms,
+    message_description,
+    noise_parameters,
+    noise_terms,
+    sensor_settings,
+    truth_sensor_payload,
+)
 
 
 class GNSS(Sensor):
+    # Position noise is given in metres as east, north, up.
     PARAMETERS = [
         *SENSOR_PARAMETERS,
         ParameterDescription("fix_location", [0.0, 0.0, 0.0]),
+        *noise_parameters("position_", scale_factor=False),
     ]
 
     def __init__(self) -> None:
         self._model = None
+        self._settings = None
+        self._messages = []
 
     def initialize(self, context: ComponentContext) -> None:
+        fix_location = context.get_parameter("fix_location", [0.0, 0.0, 0.0])
         self._model = gnss_sensor_casadi(
-            context.get_parameter("fix_location", [0.0, 0.0, 0.0])
+            fix_location,
+            context.get_parameter("location", [0.0, 0.0, 0.0]),
         )
+        position_terms = noise_terms(context, "position_")
+        self._settings = sensor_settings(
+            context,
+            [self._geodetic_terms(position_terms, fix_location)],
+        )
+        # A fix reports its covariance in metres as east, north, up.
+        self._messages = [
+            message_description(
+                "NavSatFix",
+                topic=self._settings.topic,
+                size=3,
+                variance=[
+                    std**2 if self._settings.noise.enabled else 0.0
+                    for std in position_terms.white_noise_std
+                ],
+            )
+        ]
 
     def graph(self) -> Sensor.SensorPayload:
         if self._model is None:
@@ -28,4 +59,28 @@ class GNSS(Sensor):
             self._model,
             [("latitude_longitude_altitude", 3)],
             "NavSatFix",
+            settings=self._settings,
+            messages=self._messages,
+        )
+
+    @staticmethod
+    def _geodetic_terms(terms: NoiseTerms, fix_location) -> NoiseTerms:
+        """Convert east, north, up metres to latitude, longitude, altitude."""
+        latitude_scale, longitude_scale, altitude_scale = (
+            enu_to_geodetic_scale(fix_location)
+        )
+
+        def convert(values: list[float]) -> list[float]:
+            east, north, up = values
+            return [
+                north * latitude_scale,
+                east * longitude_scale,
+                up * altitude_scale,
+            ]
+
+        return NoiseTerms(
+            scale_factor=[1.0, 1.0, 1.0],
+            bias=convert(terms.bias),
+            white_noise_std=convert(terms.white_noise_std),
+            bias_random_walk_std=convert(terms.bias_random_walk_std),
         )
