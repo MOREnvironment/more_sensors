@@ -32,8 +32,15 @@ def _validate_fix_location(
 def gnss_sensor_casadi(
     fix_location: Sequence[float] = (0.0, 0.0, 0.0),
     location: Sequence[float] = (0.0, 0.0, 0.0),
+    frame: str = "ENU",
 ) -> ca.Function:
-    """Convert a local ENU antenna position to WGS-84 coordinates."""
+    """Convert a local antenna position to WGS-84 coordinates.
+
+    The vessel position is read as east, north, up when frame is "ENU" and as
+    north, east, down when frame is "NED".
+    """
+    if frame not in ("ENU", "NED"):
+        raise ValueError('frame must be "ENU" or "NED"')
     latitude_deg, longitude_deg, altitude = _validate_fix_location(
         fix_location
     )
@@ -61,7 +68,10 @@ def gnss_sensor_casadi(
 
     vessel_state = ca.SX.sym("vessel_state", 12)
     antenna = sensor_position(vessel_state, location)
-    east, north, up = antenna[0], antenna[1], antenna[2]
+    if frame == "NED":
+        east, north, up = antenna[1], antenna[0], -antenna[2]
+    else:
+        east, north, up = antenna[0], antenna[1], antenna[2]
     ecef_x = (
         origin_x
         - sin_longitude * east

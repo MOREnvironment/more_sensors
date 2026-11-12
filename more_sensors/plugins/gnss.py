@@ -20,6 +20,7 @@ class GNSS(Sensor):
     PARAMETERS = [
         *SENSOR_PARAMETERS,
         ParameterDescription("fix_location", [0.0, 0.0, 0.0]),
+        ParameterDescription("state_frame", "ENU"),
         *noise_parameters("position_", scale_factor=False),
     ]
 
@@ -33,6 +34,7 @@ class GNSS(Sensor):
         self._model = gnss_sensor_casadi(
             fix_location,
             context.get_parameter("location", [0.0, 0.0, 0.0]),
+            str(context.get_parameter("state_frame", "ENU")),
         )
         position_terms = noise_terms(context, "position_")
         self._settings = sensor_settings(
