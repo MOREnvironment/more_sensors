@@ -131,6 +131,33 @@ def test_gnss_scale_matches_the_model_at_the_fix_location():
     )
 
 
+def test_gnss_reads_a_ned_state_when_asked():
+    fix_location = (63.4, 10.4, 0.0)
+    ned_state = np.zeros(12)
+    ned_state[0:3] = [100.0, 50.0, 2.0]
+    enu_state = np.zeros(12)
+    enu_state[0:3] = [50.0, 100.0, -2.0]
+
+    np.testing.assert_allclose(
+        _evaluate(gnss_sensor_casadi(fix_location, frame="NED"), ned_state),
+        _evaluate(gnss_sensor_casadi(fix_location), enu_state),
+        atol=1e-9,
+    )
+    latitude_scale, longitude_scale, _ = enu_to_geodetic_scale(fix_location)
+    np.testing.assert_allclose(
+        _evaluate(gnss_sensor_casadi(fix_location, frame="NED"), ned_state)
+        - np.array(fix_location),
+        [100.0 * latitude_scale, 50.0 * longitude_scale, -2.0],
+        rtol=1e-3,
+        atol=1e-9,
+    )
+
+
+def test_gnss_frame_must_be_enu_or_ned():
+    with pytest.raises(ValueError, match="frame must be"):
+        gnss_sensor_casadi(frame="NWU")
+
+
 def test_gnss_applies_antenna_location():
     vessel_state = _yawed_state()
     moved_state = vessel_state.copy()

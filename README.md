@@ -18,6 +18,10 @@ defined in more_sensors/plugin_types/sensor.capnp.
 `Pressure` measures pressure, with noise in pascals, and like a sensor
 driver derives the depth from that reading.
 
+`GNSS` reads the vessel position as east, north, up unless `state_frame` is
+`"NED"`, for a vessel state in north, east, down. Its noise and covariance
+stay in metres as east, north, up.
+
 `DVL` and `PoseSensor` have `with_covariance`, which switches them to
 `TwistWithCovarianceStamped` and `PoseWithCovarianceStamped` for state
 estimators.
