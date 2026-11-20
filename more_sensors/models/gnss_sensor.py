@@ -11,7 +11,7 @@ _WGS84_ECCENTRICITY_SQUARED = 6.6943799901413165e-3
 def _validate_fix_location(
     fix_location: Sequence[float],
 ) -> tuple[float, float, float]:
-    """Validate the geodetic location of the local ENU origin."""
+    """Validate the geodetic location of the local NED origin."""
     if len(fix_location) != 3:
         raise ValueError(
             "fix_location must contain latitude, longitude, altitude"
@@ -30,7 +30,7 @@ def _validate_fix_location(
 def gnss_sensor_casadi(
     fix_location: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> ca.Function:
-    """Convert a local ENU position to WGS-84 geodetic coordinates."""
+    """Convert the NED position of a 12-value vessel state to WGS-84 geodetic coordinates."""
     latitude_deg, longitude_deg, altitude = _validate_fix_location(
         fix_location
     )
@@ -57,7 +57,8 @@ def gnss_sensor_casadi(
     ) * sin_latitude
 
     vessel_state = ca.SX.sym("vessel_state", 12)
-    east, north, up = vessel_state[0], vessel_state[1], vessel_state[2]
+    # The vessel state is north, east, down, as in more_dynamics.
+    north, east, up = vessel_state[0], vessel_state[1], -vessel_state[2]
     ecef_x = (
         origin_x
         - sin_longitude * east
